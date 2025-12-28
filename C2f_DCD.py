@@ -1,7 +1,6 @@
 class DCD(nn.Module):
     """
     DCD (Dual-Context Diffusion) Block
-    --------------------------------------------------
     """
     def __init__(self, c1, c2, ratio=1.0, k=3, s=1):
         super().__init__()
