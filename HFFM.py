@@ -1,6 +1,5 @@
 class DAGB(nn.Module):  # LightSmokeEnhance
 
-
     def __init__(self, in_channels, reduction_ratio=8, use_se=True, use_sa=True):
         super().__init__()
         self.use_se = use_se
