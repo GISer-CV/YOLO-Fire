@@ -7,20 +7,19 @@ class DCD(nn.Module):
         c_mid = int(c2 * ratio)
         self.dim = c_mid // 2
         
-        # 1. 降维
+
         self.cv1 = Conv(c1, c_mid, 1, 1)
         
-        # 2. 语境分支 (Context Branch): 率先提取背景
+        # Context Branch
         self.dw_context = nn.Conv2d(self.dim, self.dim, k, s, autopad(k, d=2), 
                                     dilation=2, groups=self.dim, bias=False)
-        self.bn_context = nn.BatchNorm2d(self.dim) # 必须BN，确保分布一致
-
-        # 3. 局部分支 (Local Branch): 接收背景注入
+        self.bn_context = nn.BatchNorm2d(self.dim) 
+        # Local Branch
         self.dw_local = nn.Conv2d(self.dim, self.dim, k, s, autopad(k), 
                                   groups=self.dim, bias=False)
         self.bn_local = nn.BatchNorm2d(self.dim)
 
-        # 4. 融合
+
         self.cv2 = Conv(c_mid, c2, 1, 1)
         self.act = FReLU(c1=c1)
         #nn.SiLU()
@@ -28,35 +27,26 @@ class DCD(nn.Module):
 
     def forward(self, x):
         residual = x if self.add else None
-        
-        # 降维
+
         x = self.cv1(x)
         
-        # Split 切分
+
         x_local, x_context = torch.split(x, self.dim, dim=1)
         
-        # -------------------------------------------------------
-        # 核心逻辑：特征扩散 (Feature Diffusion)
-        # -------------------------------------------------------
-        
-        # 1. 先计算语境分支
+
         out_context = self.bn_context(self.dw_context(x_context))
         
-        # 2. 【关键】将语境特征扩散注入到局部特征的“输入端”
-        # 这是一个加法操作，不是乘法，不会压缩特征值范围
-        # 这使得后续的卷积在提取纹理时，自带背景知识
+
         fused_input = x_local + out_context
         
-        # 3. 再计算局部分支
+
         out_local = self.bn_local(self.dw_local(fused_input))
         
-        # -------------------------------------------------------
-        
-        # Concat 拼接
+
         x = torch.cat((out_local, out_context), dim=1)
         x = self.act(x)
         
-        # 升维融合
+
         x = self.cv2(x)
         
         return x + residual if self.add else x
